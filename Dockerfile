@@ -10,9 +10,6 @@ RUN apt-get -y install python-dev python-numpy libtbb2 libtbb-dev libjpeg-dev li
 RUN apt-get -y install libjpeg8-dev libtiff5-dev libpng12-dev
 RUN apt-get -y install libatlas-base-dev gfortran
 
-# hack for libdc1394-22-dev
-# ref. https://stackoverflow.com/questions/29274638/opencv-libdc1394-error-failed-to-initialize-libdc1394
-RUN ln /dev/null /dev/raw1394
 
 RUN git clone https://github.com/opencv/opencv.git && \
     cd opencv && \
@@ -33,5 +30,21 @@ COPY cliente-cv.py /src/cliente-cv.py
 COPY servidor-cv.py /src/servidor-cv.py
 COPY utils.py /src/utils.py
 
-CMD cd /src && \
+# to export GUI
+RUN export uid=1000 gid=1000 && \
+    mkdir -p /home/developer && \
+    echo "developer:x:${uid}:${gid}:Developer,,,:/home/developer:/bin/bash" >> /etc/passwd && \
+    echo "developer:x:${uid}:" >> /etc/group && \
+    echo "developer ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/developer && \
+    chmod 0440 /etc/sudoers.d/developer && \
+    chown ${uid}:${gid} -R /home/developer
+ENV DISPLAY :0
+USER developer
+ENV HOME /home/developer
+RUN sudo chown -R developer /src /opencv
+
+# hack for libdc1394-22-dev
+# ref. https://stackoverflow.com/questions/29274638/opencv-libdc1394-error-failed-to-initialize-libdc1394
+CMD sudo ln /dev/null /dev/raw1394 && \
+    cd /src && \
     /bin/bash

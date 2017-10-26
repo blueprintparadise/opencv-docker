@@ -8,9 +8,7 @@ $ docker run -it opencv
 
 # Inside the container
 
-```
 
-```
 
 See more in:
 * https://docs.opencv.org/trunk/d7/d9f/tutorial_linux_install.html
