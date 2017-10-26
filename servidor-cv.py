@@ -16,27 +16,27 @@ from utils import code_frame, decode_frame
 
 class ConnectionPool(Thread):
     def __init__(self,
-                 ip_,
-                 port_,
-                 conn_,
-                 image_height_,
-                 image_width_,
-                 color_pixel_,
-                 cascPath="~/opencv/data/lbpcascades/lbpcascade_frontalface.xml"):
+                 ip,
+                 port,
+                 conn,
+                 image_height,
+                 image_width,
+                 color_pixel,
+                 cascPath="/home/h3dema/opencv/data/lbpcascades/lbpcascade_frontalface.xml"):
         Thread.__init__(self)
-        self.ip = ip_
-        self.port = port_
-        self.conn = conn_
-        self.image_height = image_height_
-        self.image_width = image_width_
-        self.color_pixel = color_pixel_
+        self.ip = ip
+        self.port = port
+        self.conn = conn
+        self.image_height = image_height
+        self.image_width = image_width
+        self.color_pixel = color_pixel
+        self.cascPath = cascPath
         print("[+] New server socket thread started for " + self.ip + ":" + str(self.port))
-
-        # Carrega o tipo de reconhecimento
-        self.faceCascade = cv2.CascadeClassifier(cascPath)
 
     def run(self):
         try:
+            # Carrega o tipo de reconhecimento
+            self.faceCascade = cv2.CascadeClassifier(self.cascPath)
             while True:
                 try:
                     # Leitura do pacote
