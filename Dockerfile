@@ -13,8 +13,8 @@ RUN git clone https://github.com/opencv/opencv.git && \
     cmake -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=/usr/local ..
 
 RUN mkdir /src
-COPY cliente.py /src/cliente.py
-COPY servidor.py /src/servidor.py
+COPY cliente-cv.py /src/cliente-cv.py
+COPY servidor-cv.py /src/servidor-cv.py
 
 CMD cd /src && \
     /bin/bash
