@@ -8,83 +8,70 @@ Created on 5 de out de 2017
 '''
 import cv2
 import socket
-import base64
-import numpy as np
 from threading import Thread
 from time import sleep
 from _codecs import encode
-import zlib
 import argparse
 
-from utils import codifica_frame, decodifica_frame
-
-# IP_SERVER = "150.164.10.79"
-IP_SERVER = "150.164.10.38"
-PORT_SERVER = 5500
-TIMEOUT_SOCKET = 10
-SIZE_PACKAGE = 4096
-
-
-IMAGE_HEIGHT = 480
-IMAGE_WIDTH = 640
-
-# IMAGE_HEIGHT = 360
-# IMAGE_WIDTH = 848
-
-COLOR_PIXEL = 3  # RGB
+from utils import code_frame, decode_frame
 
 
 class ConnectionSend(Thread):
+    """thread to send message to the image processing server"""
 
     def __init__(self, conn_, device_):
         Thread.__init__(self)
-
         self.conn = conn_
         self.device = device_
         print("[+] New server socket thread started send")
 
     def run(self):
-        while(True):
+        ctrl_c = False
+        while True and not ctrl_c:
             try:
                 while True:
                     ret, frame = self.device.read()
-                    cod = codifica(frame)                                        
-                    self.conn.sendall(cod)                   
+                    _, cod = code_frame(frame)
+                    self.conn.sendall(cod)
                     cv2.imshow('Janela de envio', frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
-                       break
+                        ctrl_c = True  # quitting
+                        break
             except Exception as e:
-                print("Conexao perdida Envio de Dados")
+                print("Connection lost - sending data")
 
-
-            
 
 class ConnectionRec(Thread):
+    """thread object to receive processed frame from server"""
 
-    def __init__(self, conn_):
+    def __init__(self, conn_, image_height_, image_width_, color_pixel_):
         Thread.__init__(self)
         self.conn = conn_
+        self.image_height = image_height_
+        self.image_width = image_width_
+        self.color_pixel = color_pixel_
         print("[+] New server socket thread started Rec")
 
     def run(self):
-        while(True):
+        ctrl_c = False
+        while True and not ctrl_c:
             try:
                 fileDescriptor = connection.makefile(mode='rb')
-                result = fileDescriptor.readline()                
+                result = fileDescriptor.readline()
                 fileDescriptor.close()
-                frame_matrix = decodifica_frame(RESULT,
-                                                     self.image_height,
-                                                     self.image_width,
-                                                     self.color_pixel,
-                                                     error_msg='[Cliente]')
+                frame_matrix = decode_frame(result,
+                                            self.image_height,
+                                            self.image_width,
+                                            self.color_pixel,
+                                            error_msg='[Client]')
                 if (len(frame_matrix.tostring()) > 0):
-                    cv2.imshow('Janela de Recepcao', frame_matrix)    
+                    cv2.imshow('Janela de Recepcao', frame_matrix)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
+                        ctrl_c = True  # quitting
                         break
-    
+
             except Exception as er:
                 print("[Cliente Error Recepcao] " + str(er))
-
 
 
 if __name__ == '__main__':
@@ -103,6 +90,8 @@ if __name__ == '__main__':
                         help='server IP address that process images (default localhost)')
     parser.add_argument('--server-port', type=int, default=5500,
                         help='server port')
+    parser.add_argument('--timeout-socket', type=int, default=10,
+                        help='socket timeouf')
     args = parser.parse_args()
 
     cap = cv2.VideoCapture(args.device_number)
@@ -111,17 +100,15 @@ if __name__ == '__main__':
 
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    connection.settimeout(TIMEOUT_SOCKET)
+    connection.settimeout(args.timeout_socket)
     connection.connect((args.server_ip, args.server_port))
-    
+
     thread1 = ConnectionSend(connection, cap)
     thread1.start()
-    thread2 = ConnectionRec(connection)
+    thread2 = ConnectionRec(connection, args.image_height, args.image_width, args.color_pixel)
     thread2.start()
-    
-    threads = []
-    threads.append(thread1)
-    threads.append(thread2)
+
+    threads = [thread1, thread2]
     for t in threads:
         t.join()
     cap.release()

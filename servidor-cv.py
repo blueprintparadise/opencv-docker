@@ -15,11 +15,10 @@ import datetime as dt
 import zlib
 import argparse
 
-from utils import codifica_frame, decodifica_frame
+from utils import code_frame, decode_frame
 
 
 class ConnectionPool(Thread):
-
     def __init__(self, ip_, port_, conn_, image_height_, image_width_, color_pixel_):
         Thread.__init__(self)
         self.ip = ip_
@@ -44,11 +43,11 @@ class ConnectionPool(Thread):
                     fileDescriptor.close()
                     if (len(result)) > 0:
                         # decodificacao
-                        ok, frame = decodifica_frame(result,
-                                                     self.image_height,
-                                                     self.image_width,
-                                                     self.color_pixel,
-                                                     error_msg='[Servidor]')
+                        ok, frame = decode_frame(result,
+                                                 self.image_height,
+                                                 self.image_width,
+                                                 self.color_pixel,
+                                                 error_msg='[Server]')
                         if (ok):
                             # converte a imagem em preto e branco para melhorar reconhecimento
                             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -65,14 +64,14 @@ class ConnectionPool(Thread):
 
                             # Envia a figura modificada para o cliente
                             # codifica a imagem
-                            cod = codifica_frame(frame)
+                            cod = code_frame(frame)
                             # #Envia de volta
                             self.conn.sendall(cod)
                 except Exception as e:
                     print("[Err Server]  " + str(e))
 
         except Exception as e:
-            print("Conexao perdida " + str(e))
+            print("Connection lost: " + str(e))
         conn.close()
 
 
@@ -103,4 +102,4 @@ if __name__ == '__main__':
         (conn, (ip, port)) = connection.accept()
         thread = ConnectionPool(ip, port, conn, args.image_height, args.image_width, args.color_pixel)
         thread.start()
-    # connection.close()
+        # connection.close()
