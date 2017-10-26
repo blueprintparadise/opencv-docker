@@ -9,8 +9,6 @@ Created on 5 de out de 2017
 import cv2
 import socket
 from threading import Thread
-from time import sleep
-from _codecs import encode
 import argparse
 
 from utils import code_frame, decode_frame
@@ -31,14 +29,14 @@ class ConnectionSend(Thread):
             try:
                 while True:
                     ret, frame = self.device.read()
-                    _, cod = code_frame(frame)
+                    cod = code_frame(frame)
                     self.conn.sendall(cod)
                     cv2.imshow('Janela de envio', frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         ctrl_c = True  # quitting
                         break
             except Exception as e:
-                print("Connection lost - sending data")
+                print("Connection lost - sending data - " + str(e))
 
 
 class ConnectionRec(Thread):
@@ -59,11 +57,11 @@ class ConnectionRec(Thread):
                 fileDescriptor = connection.makefile(mode='rb')
                 result = fileDescriptor.readline()
                 fileDescriptor.close()
-                frame_matrix = decode_frame(result,
-                                            self.image_height,
-                                            self.image_width,
-                                            self.color_pixel,
-                                            error_msg='[Client]')
+                ok, frame_matrix = decode_frame(result,
+                                                self.image_height,
+                                                self.image_width,
+                                                self.color_pixel,
+                                                error_msg='[Client]')
                 if (len(frame_matrix.tostring()) > 0):
                     cv2.imshow('Janela de Recepcao', frame_matrix)
                     if cv2.waitKey(1) & 0xFF == ord('q'):

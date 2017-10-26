@@ -6,20 +6,23 @@ Created on 5 de out de 2017
 @author: luis
 @author: h3dema
 '''
-import time
 import socket
 from threading import Thread
 import cv2
-from time import sleep
-import datetime as dt
-import zlib
 import argparse
 
 from utils import code_frame, decode_frame
 
 
 class ConnectionPool(Thread):
-    def __init__(self, ip_, port_, conn_, image_height_, image_width_, color_pixel_):
+    def __init__(self,
+                 ip_,
+                 port_,
+                 conn_,
+                 image_height_,
+                 image_width_,
+                 color_pixel_,
+                 cascPath="~/opencv/data/lbpcascades/lbpcascade_frontalface.xml"):
         Thread.__init__(self)
         self.ip = ip_
         self.port = port_
@@ -30,7 +33,6 @@ class ConnectionPool(Thread):
         print("[+] New server socket thread started for " + self.ip + ":" + str(self.port))
 
         # Carrega o tipo de reconhecimento
-        cascPath = "/home/luis/opencv/opencv/data/lbpcascades/lbpcascade_frontalface.xml"
         self.faceCascade = cv2.CascadeClassifier(cascPath)
 
     def run(self):
@@ -50,18 +52,20 @@ class ConnectionPool(Thread):
                                                  error_msg='[Server]')
                         if (ok):
                             # converte a imagem em preto e branco para melhorar reconhecimento
-                            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                            gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                             # detecta os objetos programados
-                            faces = self.faceCascade.detectMultiScale(
-                                gray,
-                                scaleFactor=1.1,
-                                minNeighbors=5,
-                                minSize=(30, 30)
-                            )
-                            # Desenha os quadrados nos objetos encontrados
-                            for (x, y, w, h) in faces:
-                                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
+                            try:
+                                faces = self.faceCascade.detectMultiScale(
+                                    gray_image,
+                                    scaleFactor=1.1,
+                                    minNeighbors=5,
+                                    minSize=(30, 30)
+                                )
+                                # Desenha os quadrados nos objetos encontrados
+                                for (x, y, w, h) in faces:
+                                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                            except Exception as e:
+                                print(str(e))
                             # Envia a figura modificada para o cliente
                             # codifica a imagem
                             cod = code_frame(frame)
