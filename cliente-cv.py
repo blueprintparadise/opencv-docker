@@ -1,7 +1,10 @@
+#!/usr/bin/env python
+#  -*- coding: utf-8 -*-
 '''
 Created on 5 de out de 2017
 
 @author: luis
+@author: h3dema
 '''
 import cv2
 import socket
@@ -11,6 +14,9 @@ from threading import Thread
 from time import sleep
 from _codecs import encode
 import zlib
+import argparse
+
+from utils import codifica_frame, decodifica_frame
 
 # IP_SERVER = "150.164.10.79"
 IP_SERVER = "150.164.10.38"
@@ -26,26 +32,6 @@ IMAGE_WIDTH = 640
 # IMAGE_WIDTH = 848
 
 COLOR_PIXEL = 3  # RGB
-
-def codifica(frame):
-    a = b'\r\n'    
-    f = frame.tostring()
-    da = base64.b64encode(f)
-    return da + a    
-
-def decodifica(frame):
-    try:        
-        result = base64.b64decode(frame)
-        frm = np.fromstring(result, dtype=np.uint8)
-        frame_matrix = np.array(frm)
-        frame_matrix = np.reshape(frame_matrix, (IMAGE_HEIGHT, IMAGE_WIDTH, COLOR_PIXEL))
-        return frame_matrix
-    except Exception as e:
-        print("[Cliente Error Envio] " + str(e.message))
-        retun (frame_matrix=None)
-
-
-
 
 
 class ConnectionSend(Thread):
@@ -86,7 +72,11 @@ class ConnectionRec(Thread):
                 fileDescriptor = connection.makefile(mode='rb')
                 result = fileDescriptor.readline()                
                 fileDescriptor.close()
-                frame_matrix = decodifica(result)
+                frame_matrix = decodifica_frame(RESULT,
+                                                     self.image_height,
+                                                     self.image_width,
+                                                     self.color_pixel,
+                                                     error_msg='[Cliente]')
                 if (len(frame_matrix.tostring()) > 0):
                     cv2.imshow('Janela de Recepcao', frame_matrix)    
                     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -98,15 +88,32 @@ class ConnectionRec(Thread):
 
 
 if __name__ == '__main__':
-    # cap = cv2.VideoCapture(1)
+
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--image-height', type=int, default=480,
+                        help='Image height in pixels')
+    parser.add_argument('--image-width', type=int, default=640,
+                        help='Image width in pixels')
+    parser.add_argument('--color-pixel', type=int, default=3,
+                        help='RGB')
+    parser.add_argument('--camera-id', dest="device_number", type=int, default=0,
+                        help='RGB')
+
+    parser.add_argument('--server-ip', type=str, default="localhost",
+                        help='server IP address that process images (default localhost)')
+    parser.add_argument('--server-port', type=int, default=5500,
+                        help='server port')
+    args = parser.parse_args()
+
+    cap = cv2.VideoCapture(args.device_number)
     # cap = cv2.VideoCapture("/home/luis/Downloads/blade-runner-2049-trailer-4_h480p.mov")
     # cap = cv2.VideoCapture("/home/luis/Downloads/Avengers_2_trailer_3_51-1080p-HDTN.mp4")    
+
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.settimeout(TIMEOUT_SOCKET)
-    connection.connect((IP_SERVER, PORT_SERVER))
+    connection.connect((args.server_ip, args.server_port))
     
-   
     thread1 = ConnectionSend(connection, cap)
     thread1.start()
     thread2 = ConnectionRec(connection)
@@ -117,8 +124,5 @@ if __name__ == '__main__':
     threads.append(thread2)
     for t in threads:
         t.join()
-    # connection.close()
-    cap.release()            
-  
-
-    # connection.close()            
+    cap.release()
+    connection.close()
