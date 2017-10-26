@@ -11,27 +11,45 @@ import socket
 from threading import Thread
 import argparse
 
-from utils import code_frame, decode_frame
+from utils import code_frame
 
 
 class ConnectionSend(Thread):
     """thread to send message to the image processing server"""
 
-    def __init__(self, conn_, device_):
+    def __init__(self, conn_, device_, num_frames=20, frames_in_fast_mode=100):
         Thread.__init__(self)
         self.conn = conn_
         self.device = device_
+        self.slow = True
+        self.num_frames = num_frames
+        self.frames_in_fast_mode = 0
+        self.max_frames_in_fast_mode = frames_in_fast_mode
         print("[+] New server socket thread started send")
+
+    def set_fast(self):
+        self.slow = False
+        self.frames_in_fast_mode = self.max_frames_in_fast_mode
 
     def run(self):
         ctrl_c = False
+        frames = 0
         while True and not ctrl_c:
             try:
                 while True:
                     ret, frame = self.device.read()
-                    cod = code_frame(frame)
-                    self.conn.sendall(cod)
-                    cv2.imshow('Janela de envio', frame)
+                    if self.slow:
+                        frames += 1
+                        if frames >= self.num_frames:
+                            cod = code_frame(frame)
+                            self.conn.sendall(cod)
+                            frames = 0
+                    # return to slow mode, after a period without detection
+                    if self.frames_in_fast_mode > 0:
+                        self.frames_in_fast_mode -= 1
+                        if self.self.frames_in_fast_mode == 0:
+                            self.slow = True
+                    cv2.imshow('Actual capture', frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         ctrl_c = True  # quitting
                         break
@@ -42,12 +60,10 @@ class ConnectionSend(Thread):
 class ConnectionRec(Thread):
     """thread object to receive processed frame from server"""
 
-    def __init__(self, conn_, image_height_, image_width_, color_pixel_):
+    def __init__(self, conn_, threadConnectionSend):
         Thread.__init__(self)
         self.conn = conn_
-        self.image_height = image_height_
-        self.image_width = image_width_
-        self.color_pixel = color_pixel_
+        self.threadConnectionSend = threadConnectionSend
         print("[+] New server socket thread started Rec")
 
     def run(self):
@@ -57,17 +73,10 @@ class ConnectionRec(Thread):
                 fileDescriptor = connection.makefile(mode='rb')
                 result = fileDescriptor.readline()
                 fileDescriptor.close()
-                ok, frame_matrix = decode_frame(result,
-                                                self.image_height,
-                                                self.image_width,
-                                                self.color_pixel,
-                                                error_msg='[Client]')
-                if (len(frame_matrix.tostring()) > 0):
-                    cv2.imshow('Janela de Recepcao', frame_matrix)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        ctrl_c = True  # quitting
-                        break
-
+                print(result)
+                if result == '1':
+                    print("detected a person")
+                    self.threadConnectionSend.set_fast()
             except Exception as er:
                 print("[Cliente Error Recepcao] " + str(er))
 
@@ -94,7 +103,7 @@ if __name__ == '__main__':
 
     cap = cv2.VideoCapture(args.device_number)
     # cap = cv2.VideoCapture("/home/luis/Downloads/blade-runner-2049-trailer-4_h480p.mov")
-    # cap = cv2.VideoCapture("/home/luis/Downloads/Avengers_2_trailer_3_51-1080p-HDTN.mp4")    
+    # cap = cv2.VideoCapture("/home/luis/Downloads/Avengers_2_trailer_3_51-1080p-HDTN.mp4")
 
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -103,7 +112,7 @@ if __name__ == '__main__':
 
     thread1 = ConnectionSend(connection, cap)
     thread1.start()
-    thread2 = ConnectionRec(connection, args.image_height, args.image_width, args.color_pixel)
+    thread2 = ConnectionRec(connection, thread1)
     thread2.start()
 
     threads = [thread1, thread2]

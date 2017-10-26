@@ -6,15 +6,14 @@ Created on 5 de out de 2017
 @author: luis
 @author: h3dema
 '''
+import signal
+import sys
 import socket
 from threading import Thread
 import cv2
 import argparse
 
-from utils import code_frame, decode_frame
-
-import signal
-import sys
+from utils import decode_frame
 
 
 def signal_handler(signal, frame):
@@ -73,16 +72,14 @@ class ConnectionPool(Thread):
                                     minNeighbors=5,
                                     minSize=(30, 30)
                                 )
-                                # Desenha os quadrados nos objetos encontrados
-                                for (x, y, w, h) in faces:
-                                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                                if len(faces) > 0:
+                                    print('has detected')
+                                    # 1 - camera
+                                    self.conn.sendall('1')  # send to the camera a flag indicating detection
+                                    # 2 - ethanol
+
                             except Exception as e:
                                 print(str(e))
-                            # Envia a figura modificada para o cliente
-                            # codifica a imagem
-                            cod = code_frame(frame)
-                            # #Envia de volta
-                            self.conn.sendall(cod)
                 except Exception as e:
                     print("[Err Server]  " + str(e))
 
