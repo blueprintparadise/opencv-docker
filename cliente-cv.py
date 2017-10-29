@@ -12,6 +12,7 @@ from threading import Thread
 import argparse
 
 from utils import code_frame
+from socket import timeout
 
 
 class ConnectionSend(Thread):
@@ -58,7 +59,7 @@ class ConnectionSend(Thread):
 
 
 class ConnectionRec(Thread):
-    """thread object to receive processed frame from server"""
+    """thread object to receive if a person is detected"""
 
     def __init__(self, conn_, threadConnectionSend):
         Thread.__init__(self)
@@ -73,12 +74,15 @@ class ConnectionRec(Thread):
                 fileDescriptor = connection.makefile(mode='rb')
                 result = fileDescriptor.readline()
                 fileDescriptor.close()
-                print(result)
+                print("detectou" + str(result))
                 if result == '1':
                     print("detected a person")
                     self.threadConnectionSend.set_fast()
+            except timeout:
+                # print("timeout")
+                pass
             except Exception as er:
-                print("[Cliente Error Recepcao] " + str(er))
+                print("[ConnectionRec Error] " + str(er))
 
 
 if __name__ == '__main__':

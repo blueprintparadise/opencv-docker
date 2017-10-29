@@ -73,9 +73,9 @@ class ConnectionPool(Thread):
                                     minSize=(30, 30)
                                 )
                                 if len(faces) > 0:
-                                    print('has detected')
+                                    print('has detected - #' + str(len(faces)))
                                     # 1 - camera
-                                    self.conn.sendall('1')  # send to the camera a flag indicating detection
+                                    self.conn.sendall('1\n')  # send to the camera a flag indicating detection
                                     # 2 - ethanol
 
                             except Exception as e:
