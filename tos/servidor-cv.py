@@ -6,7 +6,6 @@ Created on 5 de out de 2017
 @author: luis
 @author: h3dema
 '''
-import signal
 import sys
 import socket
 from threading import Thread
@@ -14,6 +13,11 @@ import cv2
 import argparse
 
 from utils import decode_frame
+
+import signal
+import logging
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+log = logging.getLogger(__file__)
 
 
 def signal_handler(signal, frame):
@@ -42,9 +46,10 @@ class ConnectionPool(Thread):
         self.image_width = image_width
         self.color_pixel = color_pixel
         self.cascPath = cascPath
-        print("[+] New server socket thread started for " + self.ip + ":" + str(self.port))
+        log.info("[+] New server socket thread started for " + self.ip + ":" + str(self.port))
 
     def run(self):
+        num = 0
         try:
             # Carrega o tipo de reconhecimento
             self.faceCascade = cv2.CascadeClassifier(self.cascPath)
@@ -56,6 +61,8 @@ class ConnectionPool(Thread):
                     fileDescriptor.close()
                     if (len(result)) > 0:
                         # decodificacao
+                        num += 1
+                        log.info("#%d frame received" % num)
                         ok, frame = decode_frame(result,
                                                  self.image_height,
                                                  self.image_width,
@@ -73,18 +80,19 @@ class ConnectionPool(Thread):
                                     minSize=(30, 30)
                                 )
                                 if len(faces) > 0:
-                                    print('has detected - #' + str(len(faces)))
+                                    log.info('has detected - #' + str(len(faces)))
                                     # 1 - camera
                                     self.conn.sendall('1\n')  # send to the camera a flag indicating detection
                                     # 2 - ethanol
+                                    
 
                             except Exception as e:
                                 print(str(e))
                 except Exception as e:
-                    print("[Err Server]  " + str(e))
+                    log.debug("[Err Server]  " + str(e))
 
         except Exception as e:
-            print("Connection lost: " + str(e))
+            log.debug("Connection lost: " + str(e))
         conn.close()
 
 

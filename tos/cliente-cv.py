@@ -14,58 +14,68 @@ import argparse
 from utils import code_frame
 from socket import timeout
 
+import logging
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+log = logging.getLogger(__file__)
+
 
 class ConnectionSend(Thread):
     """thread to send message to the image processing server"""
 
-    def __init__(self, conn_, device_, num_frames=20, frames_in_fast_mode=100):
-        Thread.__init__(self)
+    def __init__(self, conn_, device_, num_frames=20, frames_in_fast_mode=150):
+        super(ConnectionSend, self).__init__()
         self.conn = conn_
         self.device = device_
         self.slow = True
         self.num_frames = num_frames
         self.frames_in_fast_mode = 0
         self.max_frames_in_fast_mode = frames_in_fast_mode
-        print("[+] New server socket thread started send")
+        log.info("[+] New server socket thread started send")
 
-    def set_fast(self):
-        self.slow = False
+    def set_frame_rate(self, slow):
+        log.info("setting to fast")
+        self.slow = slow
         self.frames_in_fast_mode = self.max_frames_in_fast_mode
 
     def run(self):
         ctrl_c = False
         frames = 0
         while True and not ctrl_c:
-            try:
-                while True:
+            while True:
+                try:
                     ret, frame = self.device.read()
+                    frames += 1
                     if self.slow:
-                        frames += 1
                         if frames >= self.num_frames:
+                            log.info("Send after - num frames %d" % self.num_frames)
                             cod = code_frame(frame)
                             self.conn.sendall(cod)
                             frames = 0
+                    else:
+                        cod = code_frame(frame)
+                        self.conn.sendall(cod)
+
                     # return to slow mode, after a period without detection
                     if self.frames_in_fast_mode > 0:
                         self.frames_in_fast_mode -= 1
-                        if self.self.frames_in_fast_mode == 0:
+                        if self.frames_in_fast_mode == 0:
                             self.slow = True
                     cv2.imshow('Actual capture', frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         ctrl_c = True  # quitting
                         break
-            except Exception as e:
-                print("Connection lost - sending data - " + str(e))
+                except Exception as e:
+                    log.debug("Connection lost - sending data - " + str(e))
 
 
 class ConnectionRec(Thread):
     """thread object to receive if a person is detected"""
 
-    def __init__(self, conn_, threadConnectionSend):
-        Thread.__init__(self)
-        self.conn = conn_
-        self.threadConnectionSend = threadConnectionSend
-        print("[+] New server socket thread started Rec")
+    def __init__(self, conn, thread1):
+        super(ConnectionRec, self).__init__()
+        self.conn = conn
+        self.thread1 = thread1
+        log.info("[+] New server socket thread started Rec")
 
     def run(self):
         ctrl_c = False
@@ -74,15 +84,16 @@ class ConnectionRec(Thread):
                 fileDescriptor = connection.makefile(mode='rb')
                 result = fileDescriptor.readline()
                 fileDescriptor.close()
-                print("detectou" + str(result))
-                if result == '1':
-                    print("detected a person")
-                    self.threadConnectionSend.set_fast()
+                result = int(result.replace('\n', ''))
+                if result in [0, 1]:
+                    if result == 1:
+                        log.info("Detected a person")
+                    self.thread1.set_frame_rate(slow=(result == 0))
             except timeout:
                 # print("timeout")
                 pass
             except Exception as er:
-                print("[ConnectionRec Error] " + str(er))
+                log.debug("[ConnectionRec Error] " + str(er))
 
 
 if __name__ == '__main__':
