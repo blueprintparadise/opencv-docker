@@ -109,6 +109,8 @@ if __name__ == '__main__':
                         help='server port')
     parser.add_argument('--timeout-socket', type=int, default=10,
                         help='socket timeouf')
+
+    parser.add_argument('--show-throughput', type=bool, default=False, help='if True, create a thread ')
     args = parser.parse_args()
 
     cap = cv2.VideoCapture(args.device_number)
