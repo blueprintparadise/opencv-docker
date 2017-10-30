@@ -114,12 +114,12 @@ class ConnectionPool(Thread):
 
                         except Exception as e:
                             print("Detection: " + str(e))
-                except ConnectionError as e:
-                    log.debug("Connection lost: " + str(e))
-                    conn.close()
-                    break
-                except Exception as e:
-                    log.debug("Err Server: " + str(e))
+            except ConnectionError as e:
+                log.debug("Connection lost: " + str(e))
+                conn.close()
+                break
+            except Exception as e:
+                log.debug("Err Server: " + str(e))
 
 
 if __name__ == '__main__':
@@ -146,8 +146,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print("Waiting connections...")
-    # connection = socket.socket(socket.AF_INET, socket.socket.SOCK_STREAM)
-    connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    connection = socket.socket(socket.AF_INET, socket.socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.bind((args.server_ip, args.server_port))
     connection.listen(args.max_num_connections)

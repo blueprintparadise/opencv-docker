@@ -117,8 +117,7 @@ if __name__ == '__main__':
     # cap = cv2.VideoCapture("/home/luis/Downloads/blade-runner-2049-trailer-4_h480p.mov")
     # cap = cv2.VideoCapture("/home/luis/Downloads/Avengers_2_trailer_3_51-1080p-HDTN.mp4")
 
-    # connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.settimeout(args.timeout_socket)
     connection.connect((args.server_ip, args.server_port))
