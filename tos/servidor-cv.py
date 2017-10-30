@@ -41,7 +41,7 @@ class ConnectionPool(Thread):
                  ethanol_server_ip,
                  ethanol_server_port,
                  frames_in_fast_mode=50,
-                 cascPath="/home/h3dema/opencv/data/lbpcascades/lbpcascade_frontalface.xml"):  # this must be an absolute path
+                 cascPath="./lbpcascade_frontalface.xml"):  # this must be an absolute path
         Thread.__init__(self)
         self.ip = ip
         self.port = port

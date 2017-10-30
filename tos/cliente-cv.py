@@ -125,8 +125,13 @@ if __name__ == '__main__':
     thread2 = ConnectionRec(connection, thread1)
     thread2.start()
 
+    from throughput import Throughput
+    t = Throughput(interval=1.0)
+    t.start()
+
     threads = [thread1, thread2]
     for t in threads:
         t.join()
     cap.release()
     connection.close()
+    t.stop()
