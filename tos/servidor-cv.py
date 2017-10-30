@@ -79,7 +79,7 @@ class ConnectionPool(Thread):
                     if (len(result)) > 0:
                         # decodificacao
                         num += 1
-                        log.info("#%d frame received" % num)
+                        log.debug("#%d frame received" % num)
                         ok, frame = decode_frame(result,
                                                  self.image_height,
                                                  self.image_width,
