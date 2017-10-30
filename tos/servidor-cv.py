@@ -67,60 +67,59 @@ class ConnectionPool(Thread):
 
     def run(self):
         num = 0
-        try:
-            # Carrega o tipo de reconhecimento
-            self.faceCascade = cv2.CascadeClassifier(self.cascPath)
-            while True:
-                try:
-                    # Leitura do pacote
-                    fileDescriptor = self.conn.makefile(mode='rb')
-                    result = fileDescriptor.readline()
-                    fileDescriptor.close()
-                    if (len(result)) > 0:
-                        # decodificacao
-                        num += 1
-                        log.debug("#%d frame received" % num)
-                        ok, frame = decode_frame(result,
-                                                 self.image_height,
-                                                 self.image_width,
-                                                 self.color_pixel,
-                                                 error_msg='[Server]')
-                        if (ok):
-                            # converte a imagem em preto e branco para melhorar reconhecimento
-                            gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                            # detecta os objetos programados
-                            try:
-                                faces = self.faceCascade.detectMultiScale(
-                                    gray_image,
-                                    scaleFactor=1.1,
-                                    minNeighbors=5,
-                                    minSize=(30, 30)
-                                )
-                                if self.frames_in_fast_mode > 0:
-                                    self.frames_in_fast_mode -= 1
-                                if len(faces) > 0:
-                                    log.info('has detected - #' + str(len(faces)))
-                                    # RESET refresh time
-                                    self.frames_in_fast_mode = self.max_frames_in_fast_mode
-                                    self.slow_mode = False
-                                    # 1 - camera
-                                    self.conn.sendall('1\n')  # send to the camera a flag indicating detection
-                                    # 2 - ethanol
-                                    self.set_rate_ethanol(high_rate=True)
-                                if self.frames_in_fast_mode == 0:  # and not self.slow_mode:
-                                    log.info('returning to slow mode')
-                                    self.slow_mode = True
-                                    self.conn.sendall('0\n')  # send to the camera a flag indicating detection
-                                    self.set_rate_ethanol(high_rate=True)
+        # Carrega o tipo de reconhecimento
+        self.faceCascade = cv2.CascadeClassifier(self.cascPath)
+        while True:
+            try:
+                # Leitura do pacote
+                fileDescriptor = self.conn.makefile(mode='rb')
+                result = fileDescriptor.readline()
+                fileDescriptor.close()
+                if (len(result)) > 0:
+                    # decodificacao
+                    num += 1
+                    log.debug("#%d frame received" % num)
+                    ok, frame = decode_frame(result,
+                                             self.image_height,
+                                             self.image_width,
+                                             self.color_pixel,
+                                             error_msg='[Server]')
+                    if (ok):
+                        # converte a imagem em preto e branco para melhorar reconhecimento
+                        gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                        # detecta os objetos programados
+                        try:
+                            faces = self.faceCascade.detectMultiScale(
+                                gray_image,
+                                scaleFactor=1.1,
+                                minNeighbors=5,
+                                minSize=(30, 30)
+                            )
+                            if self.frames_in_fast_mode > 0:
+                                self.frames_in_fast_mode -= 1
+                            if len(faces) > 0:
+                                log.info('has detected - #' + str(len(faces)))
+                                # RESET refresh time
+                                self.frames_in_fast_mode = self.max_frames_in_fast_mode
+                                self.slow_mode = False
+                                # 1 - camera
+                                self.conn.sendall('1\n')  # send to the camera a flag indicating detection
+                                # 2 - ethanol
+                                self.set_rate_ethanol(high_rate=True)
+                            if self.frames_in_fast_mode == 0:  # and not self.slow_mode:
+                                log.info('returning to slow mode')
+                                self.slow_mode = True
+                                self.conn.sendall('0\n')  # send to the camera a flag indicating detection
+                                self.set_rate_ethanol(high_rate=True)
 
-                            except Exception as e:
-                                print(str(e))
+                        except Exception as e:
+                            print("Detection: " + str(e))
+                except ConnectionError as e:
+                    log.debug("Connection lost: " + str(e))
+                    conn.close()
+                    break
                 except Exception as e:
-                    log.debug("[Err Server]  " + str(e))
-
-        except Exception as e:
-            log.debug("Connection lost: " + str(e))
-        conn.close()
+                    log.debug("Err Server: " + str(e))
 
 
 if __name__ == '__main__':
@@ -147,7 +146,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print("Waiting connections...")
-    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # connection = socket.socket(socket.AF_INET, socket.socket.SOCK_STREAM)
+    connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.bind((args.server_ip, args.server_port))
     connection.listen(args.max_num_connections)
