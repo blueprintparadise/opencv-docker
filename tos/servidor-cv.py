@@ -12,6 +12,7 @@ from threading import Thread
 import cv2
 import argparse
 import pickle
+import StringIO
 
 from utils import decode_frame
 
@@ -65,6 +66,14 @@ class ConnectionPool(Thread):
         s.connect((self.ethanol_server_ip, self.ethanol_server_port))
         s.sendall(obj)
 
+    def readline(self, bufferSize=4096):
+        buff = StringIO.StringIO(bufferSize)
+        while True:
+            data = self.conn.recv()
+            buff.write(data)                    # Append that segment to the buffer
+            if '\n' in data:
+                break
+
     def run(self):
         num = 0
         # Carrega o tipo de reconhecimento
@@ -72,9 +81,31 @@ class ConnectionPool(Thread):
         while True:
             try:
                 # Leitura do pacote
-                fileDescriptor = self.conn.makefile(mode='rb')
-                result = fileDescriptor.readline()
-                fileDescriptor.close()
+                # formato 1 - toda imagem em uma única linha
+                # fileDescriptor = self.conn.makefile(mode='rb')
+                # result = fileDescriptor.readline()
+                # fileDescriptor.close()
+
+                # formato 2 - imagem é mandada por linha e com delimitador
+                from utils import FRAME_DELIMITER, compose_frame
+                lines = []
+                end_frame = False
+                i = 1
+                print('formato 2 - while')
+                while not end_frame:
+                    line = self.readline()
+                    print('formato 2 - ', line)
+                    if line == FRAME_DELIMITER:
+                        break
+                    lines.append(line)
+                    print('lido linha #', i)
+                    i += 1
+                result = compose_frame(lines,
+                                       self.image_height,
+                                       self.image_width,
+                                       self.color_pixel,
+                                       )
+
                 if (len(result)) > 0:
                     # decodificacao
                     num += 1

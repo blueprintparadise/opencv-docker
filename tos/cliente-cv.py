@@ -11,7 +11,6 @@ import socket
 from threading import Thread
 import argparse
 
-from utils import code_data_base64
 from socket import timeout
 
 import logging
@@ -42,15 +41,25 @@ class ConnectionSend(Thread):
                 try:
                     ret, frame = self.device.read()
                     frames += 1
-                    if self.slow:
-                        if frames >= self.num_frames:
-                            log.info("Send after - num frames %d" % self.num_frames)
-                            cod = code_data_base64(frame)
+
+                    # from utils import code_data_base64
+                    from utils import code_frame2
+
+                    if not self.slow or frames >= self.num_frames:
+                        frames = 0
+                        log.info("Send after - num frames %d" % self.num_frames)
+                        # formato 1 - manda toda a imagem como um único bloco
+                        # cod = code_data_base64(frame)
+                        # self.conn.sendall(cod)
+
+                        # formato 2 - manda a frame uma linha por vez
+                        cod = code_frame2(frame,
+                                          self.image_height,
+                                          self.image_width,
+                                          self.color_pixel
+                                          )
+                        for line in cod:
                             self.conn.sendall(cod)
-                            frames = 0
-                    else:
-                        cod = code_data_base64(frame)
-                        self.conn.sendall(cod)
 
                     cv2.imshow('Actual capture', frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -103,8 +112,8 @@ if __name__ == '__main__':
     parser.add_argument('--camera-id', dest="device_number", type=int, default=0,
                         help='RGB')
 
-    # parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
-    parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
+    parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
+    # parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
     parser.add_argument('--server-port', type=int, default=5500,
                         help='server port')
     parser.add_argument('--timeout-socket', type=int, default=10,
