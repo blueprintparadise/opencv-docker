@@ -103,8 +103,8 @@ if __name__ == '__main__':
     parser.add_argument('--camera-id', dest="device_number", type=int, default=0,
                         help='RGB')
 
-    parser.add_argument('--server-ip', type=str, default="localhost",
-                        help='server IP address that process images (default localhost)')
+    # parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
+    parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
     parser.add_argument('--server-port', type=int, default=5500,
                         help='server port')
     parser.add_argument('--timeout-socket', type=int, default=10,
