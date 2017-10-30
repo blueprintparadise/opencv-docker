@@ -11,7 +11,7 @@ import socket
 from threading import Thread
 import argparse
 
-from utils import code_frame
+from utils import code_data_base64
 from socket import timeout
 
 import logging
@@ -45,11 +45,11 @@ class ConnectionSend(Thread):
                     if self.slow:
                         if frames >= self.num_frames:
                             log.info("Send after - num frames %d" % self.num_frames)
-                            cod = code_frame(frame)
+                            cod = code_data_base64(frame)
                             self.conn.sendall(cod)
                             frames = 0
                     else:
-                        cod = code_frame(frame)
+                        cod = code_data_base64(frame)
                         self.conn.sendall(cod)
 
                     cv2.imshow('Actual capture', frame)
