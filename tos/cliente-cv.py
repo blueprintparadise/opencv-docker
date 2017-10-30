@@ -22,20 +22,17 @@ log = logging.getLogger(__file__)
 class ConnectionSend(Thread):
     """thread to send message to the image processing server"""
 
-    def __init__(self, conn_, device_, num_frames=20, frames_in_fast_mode=150):
+    def __init__(self, conn_, device_, num_frames=20):
         super(ConnectionSend, self).__init__()
         self.conn = conn_
         self.device = device_
         self.slow = True
         self.num_frames = num_frames
-        self.frames_in_fast_mode = 0
-        self.max_frames_in_fast_mode = frames_in_fast_mode
         log.info("[+] New server socket thread started send")
 
     def set_frame_rate(self, slow):
         log.info("setting to fast")
         self.slow = slow
-        self.frames_in_fast_mode = self.max_frames_in_fast_mode
 
     def run(self):
         ctrl_c = False
@@ -55,11 +52,6 @@ class ConnectionSend(Thread):
                         cod = code_frame(frame)
                         self.conn.sendall(cod)
 
-                    # return to slow mode, after a period without detection
-                    if self.frames_in_fast_mode > 0:
-                        self.frames_in_fast_mode -= 1
-                        if self.frames_in_fast_mode == 0:
-                            self.slow = True
                     cv2.imshow('Actual capture', frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         ctrl_c = True  # quitting
@@ -85,10 +77,13 @@ class ConnectionRec(Thread):
                 result = fileDescriptor.readline()
                 fileDescriptor.close()
                 result = int(result.replace('\n', ''))
-                if result in [0, 1]:
-                    if result == 1:
-                        log.info("Detected a person")
-                    self.thread1.set_frame_rate(slow=(result == 0))
+                if result == 0:
+                    self.thread1.set_frame_rate(slow=True)
+                    log.info("Returning to slow capture")
+                if result == 1:
+                    self.thread1.set_frame_rate(slow=False)
+                    log.info("Detected a person")
+
             except timeout:
                 # print("timeout")
                 pass

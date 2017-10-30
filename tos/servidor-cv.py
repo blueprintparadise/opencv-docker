@@ -11,6 +11,7 @@ import socket
 from threading import Thread
 import cv2
 import argparse
+import pickle
 
 from utils import decode_frame
 
@@ -37,6 +38,9 @@ class ConnectionPool(Thread):
                  image_height,
                  image_width,
                  color_pixel,
+                 ethanol_server_ip,
+                 ethanol_server_port,
+                 frames_in_fast_mode=50,
                  cascPath="/home/h3dema/opencv/data/lbpcascades/lbpcascade_frontalface.xml"):  # this must be an absolute path
         Thread.__init__(self)
         self.ip = ip
@@ -46,7 +50,20 @@ class ConnectionPool(Thread):
         self.image_width = image_width
         self.color_pixel = color_pixel
         self.cascPath = cascPath
+        self.ethanol_server_ip = ethanol_server_ip
+        self.ethanol_server_port = ethanol_server_port
+        self.frames_in_fast_mode = 0
+        self.max_frames_in_fast_mode = frames_in_fast_mode
+        self.slow_mode = True
         log.info("[+] New server socket thread started for " + self.ip + ":" + str(self.port))
+
+    def set_rate_ethanol(self, high_rate):
+        if self.ethanol_server_ip is None:
+            return
+        obj = pickle.dumps(high_rate, protocol=0)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self.ethanol_server_ip, self.ethanol_server_port))
+        s.sendall(obj)
 
     def run(self):
         num = 0
@@ -79,12 +96,22 @@ class ConnectionPool(Thread):
                                     minNeighbors=5,
                                     minSize=(30, 30)
                                 )
+                                if self.frames_in_fast_mode > 0:
+                                    self.frames_in_fast_mode -= 1
                                 if len(faces) > 0:
                                     log.info('has detected - #' + str(len(faces)))
+                                    # RESET refresh time
+                                    self.frames_in_fast_mode = self.max_frames_in_fast_mode
+                                    self.slow_mode = False
                                     # 1 - camera
                                     self.conn.sendall('1\n')  # send to the camera a flag indicating detection
                                     # 2 - ethanol
-                                    
+                                    self.set_rate_ethanol(high_rate=True)
+                                if self.frames_in_fast_mode == 0:  # and not self.slow_mode:
+                                    log.info('returning to slow mode')
+                                    self.slow_mode = True
+                                    self.conn.sendall('0\n')  # send to the camera a flag indicating detection
+                                    self.set_rate_ethanol(high_rate=True)
 
                             except Exception as e:
                                 print(str(e))
@@ -112,6 +139,11 @@ if __name__ == '__main__':
                         help='server port')
     parser.add_argument('--max-num-connections', type=int, default=20,
                         help='maximum number of connections')
+
+    parser.add_argument('--ethanol-server-ip', type=str, default="150.164.10.52",
+                        help='Ethanol server IP address')
+    parser.add_argument('--ethanol-server-port', type=int, default=22222,
+                        help='Ethanol server port')
     args = parser.parse_args()
 
     print("Waiting connections...")
@@ -121,6 +153,12 @@ if __name__ == '__main__':
     connection.listen(args.max_num_connections)
     while True:
         (conn, (ip, port)) = connection.accept()
-        thread = ConnectionPool(ip, port, conn, args.image_height, args.image_width, args.color_pixel)
+        thread = ConnectionPool(ip, port, conn,
+                                args.image_height,
+                                args.image_width,
+                                args.color_pixel,
+                                ethanol_server_ip=None,  # args.ethanol_server_ip,
+                                ethanol_server_port=args.ethanol_server_port,
+                                )
         thread.start()
         # connection.close()
