@@ -136,7 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('--image-width', type=int, default=640, help='Image width in pixels')
     parser.add_argument('--color-pixel', type=int, default=3, help='RGB')
 
-    parser.add_argument('--frames-in-fast-mode', type=int, default=50, help='frames in fast mode')
+    parser.add_argument('--frames-in-fast-mode', type=int, default=30, help='frames in fast mode')
 
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
 

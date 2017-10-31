@@ -77,8 +77,8 @@ if __name__ == '__main__':
     parser.add_argument('--camera-id', dest="device_number", type=int, default=0,
                         help='RGB')
 
-    parser.add_argument('--num-frames', type=int, default=20, help='number of skipped frames in slow mode')
-    parser.add_argument('--num-frames-fast', type=int, default=5, help='number of skipped frames in fast mode')
+    parser.add_argument('--num-frames', type=int, default=30, help='number of skipped frames in slow mode')
+    parser.add_argument('--num-frames-fast', type=int, default=10, help='number of skipped frames in fast mode')
 
     # parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
     parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
