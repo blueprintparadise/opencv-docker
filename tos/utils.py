@@ -4,6 +4,12 @@ import base64
 import numpy as np
 import zlib
 import binascii
+import sys
+
+
+def signal_handler(signal, frame):
+        print('You pressed Ctrl+C!')
+        sys.exit(0)
 
 
 def code_data_base64(frame, compress=False, compress_level=6):

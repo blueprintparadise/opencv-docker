@@ -8,96 +8,57 @@ Created on 5 de out de 2017
 '''
 import cv2
 import socket
-from threading import Thread
 import argparse
 
+from threading import Thread
 from socket import timeout
+import signal
+from utils import signal_handler
 
 import logging
+
+
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 log = logging.getLogger(__file__)
+signal.signal(signal.SIGINT, signal_handler)
+slow_mode = True  # default mode -- slow capture
 
 
-class ConnectionSend(Thread):
-    """thread to send message to the image processing server"""
-
-    def __init__(self, conn_, device_, num_frames=20):
-        super(ConnectionSend, self).__init__()
-        self.conn = conn_
-        self.device = device_
-        self.slow = True
-        self.num_frames = num_frames
-        log.info("[+] New server socket thread started send")
-
-    def set_frame_rate(self, slow):
-        log.info("setting to %s" % ('slow' if slow else 'fast'))
-        self.slow = slow
-
-    def run(self):
-        ctrl_c = False
-        frames = 0
-        while True and not ctrl_c:
-            while True:
-                try:
-                    ret, frame = self.device.read()
-                    frames += 1
-
-                    # from utils import code_data_base64
-                    from utils import code_frame2
-
-                    if not self.slow or frames >= self.num_frames:
-                        frames = 0
-                        log.info("Send after - num frames %d" % self.num_frames)
-                        # formato 1 - manda toda a imagem como um único bloco
-                        # cod = code_data_base64(frame)
-                        # self.conn.sendall(cod)
-
-                        # formato 2 - manda a frame uma linha por vez
-                        cod = code_frame2(frame,
-                                          self.image_height,
-                                          self.image_width,
-                                          self.color_pixel
-                                          )
-                        for line in cod:
-                            self.conn.sendall(cod)
-
-                    cv2.imshow('Actual capture', frame)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        ctrl_c = True  # quitting
-                        break
-                except Exception as e:
-                    log.debug("Connection lost - sending data - " + str(e))
+def get_frame_rate(server_port, server_ip='0.0.0.0', max_num_connections=1):
+    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    connection.bind((server_ip, server_port))
+    connection.listen(max_num_connections)
+    log.info("Waiting connections @ %d ..." % server_port)
+    while True:
+        (client_conn, (ip, port)) = connection.accept()
+        result = client_conn.recv(1)
+        if result != '':
+            global slow_mode
+            result = int(result)
+            if result == 0:
+                slow_mode = True
+            if result == 1:
+                slow_mode = False
+            log.info("Setting to %s" % ('slow' if slow_mode else 'fast'))
+        client_conn.close()
 
 
-class ConnectionRec(Thread):
-    """thread object to receive if a person is detected"""
+def send_image(frame_id, frame, timeout_socket, server_ip, server_port):
+    """ send the frame to the image processing server """
+    from utils import code_data_base64
+    # format #1 - sends the entire image as a single block
+    cod = code_data_base64(frame)
 
-    def __init__(self, conn, thread1):
-        super(ConnectionRec, self).__init__()
-        self.conn = conn
-        self.thread1 = thread1
-        log.info("[+] New server socket thread started Rec")
-
-    def run(self):
-        ctrl_c = False
-        while True and not ctrl_c:
-            try:
-                fileDescriptor = connection.makefile(mode='rb')
-                result = fileDescriptor.readline()
-                fileDescriptor.close()
-                result = int(result.replace('\n', ''))
-                if result == 0:
-                    self.thread1.set_frame_rate(slow=True)
-                    log.info("Returning to slow capture")
-                if result == 1:
-                    self.thread1.set_frame_rate(slow=False)
-                    log.info("Detected a person")
-
-            except timeout:
-                # print("timeout")
-                pass
-            except Exception as er:
-                log.debug("[ConnectionRec Error] " + str(er))
+    # each image is sent on a different connection
+    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    connection.settimeout(timeout_socket)
+    connection.connect((server_ip, server_port))
+    log.info("Connecting to %s:%d" % (server_ip, server_port))
+    connection.sendall(cod)
+    log.debug("Frame %d sent" % frame_id)
+    connection.close()
 
 
 if __name__ == '__main__':
@@ -112,12 +73,13 @@ if __name__ == '__main__':
     parser.add_argument('--camera-id', dest="device_number", type=int, default=0,
                         help='RGB')
 
+    parser.add_argument('--num-frames', type=int, default=20, help='number of skipped frames in slow mode')
+
     parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
     # parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
-    parser.add_argument('--server-port', type=int, default=5500,
-                        help='server port')
-    parser.add_argument('--timeout-socket', type=int, default=10,
-                        help='socket timeouf')
+    parser.add_argument('--server-port', type=int, default=5500, help='server port')
+    parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
+    parser.add_argument('--timeout-socket', type=int, default=10, help='socket timeouf')
 
     parser.add_argument('--show-throughput', type=bool, default=False, help='if True, create a thread ')
     args = parser.parse_args()
@@ -126,26 +88,51 @@ if __name__ == '__main__':
     # cap = cv2.VideoCapture("/home/luis/Downloads/blade-runner-2049-trailer-4_h480p.mov")
     # cap = cv2.VideoCapture("/home/luis/Downloads/Avengers_2_trailer_3_51-1080p-HDTN.mp4")
 
-    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    connection.settimeout(args.timeout_socket)
-    connection.connect((args.server_ip, args.server_port))
-
-    thread1 = ConnectionSend(connection, cap)
-    thread1.start()
-    thread2 = ConnectionRec(connection, thread1)
-    thread2.start()
-
     if args.show_throughput:
         from throughput import Throughput
         t = Throughput(interval=1.0)
         t.start()
 
-    threads = [thread1, thread2]
-    for t in threads:
-        t.join()
-    cap.release()
-    connection.close()
+    # to receive messages
+    Thread(target=get_frame_rate,
+           args=(),
+           kwargs={'server_port': args.videocapture_port,
+                   }
+           ).start()
 
+    ctrl_c = False
+    frames = 0
+    num_frames = 0
+    frame_id = 0
+    while not ctrl_c:
+        try:
+            ret, frame = cap.read()
+            frame_id += 1  # identifies the frame
+            frames += 1    # count number of frames in slow mode
+            if not slow_mode or frames >= args.num_frames:
+                frames = 0
+                if slow_mode:
+                    log.info("Send frame %d after - num frames %d" % (frame_id, args.num_frames))
+                else:
+                    log.info("Send frame %d" % (frame_id))
+
+                t = Thread(target=send_image, args=(),
+                           kwargs={'frame_id': frame_id,
+                                   'frame': frame,
+                                   'timeout_socket': args.timeout_socket,
+                                   'server_ip': args.server_ip,
+                                   'server_port': args.server_port,
+                                   }
+                           )
+                t.start()
+
+            cv2.imshow('Actual capture', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                ctrl_c = True  # quitting
+                break
+        except Exception as e:
+            print "Error: " + str(e)
+            pass
+    cap.release()
     if args.show_throughput:
         t.stop()

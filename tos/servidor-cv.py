@@ -6,28 +6,23 @@ Created on 5 de out de 2017
 @author: luis
 @author: h3dema
 '''
-import sys
 import socket
+from socket import timeout
 from threading import Thread
 import cv2
 import argparse
 import pickle
-import StringIO
 
-from utils import decode_frame
-
+from utils import signal_handler, decode_frame
 import signal
+
 import logging
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 log = logging.getLogger(__file__)
-
-
-def signal_handler(signal, frame):
-        print('You pressed Ctrl+C!')
-        sys.exit(0)
-
-
 signal.signal(signal.SIGINT, signal_handler)
+
+"""controlls the number of frames received by the ip address"""
+frames_in_fast_mode = dict()
 
 
 class ConnectionPool(Thread):
@@ -40,8 +35,9 @@ class ConnectionPool(Thread):
                  image_width,
                  color_pixel,
                  ethanol_server_ip,
-                 ethanol_server_port,
-                 frames_in_fast_mode=50,
+                 ethanol_server_port=5500,
+                 videocapture_port=5501,
+                 max_frames_in_fast_mode=200,
                  cascPath="./lbpcascade_frontalface.xml"):  # this must be an absolute path
         Thread.__init__(self)
         self.ip = ip
@@ -53,10 +49,15 @@ class ConnectionPool(Thread):
         self.cascPath = cascPath
         self.ethanol_server_ip = ethanol_server_ip
         self.ethanol_server_port = ethanol_server_port
-        self.frames_in_fast_mode = 0
-        self.max_frames_in_fast_mode = frames_in_fast_mode
+        self.max_frames_in_fast_mode = max_frames_in_fast_mode
+        if ip not in frames_in_fast_mode:
+            frames_in_fast_mode[ip] = 0
+        self.videocapture_port = videocapture_port
         self.slow_mode = True
-        log.info("[+] New server socket thread started for " + self.ip + ":" + str(self.port))
+        log.debug("[+] New server socket thread started for " + self.ip + ":" + str(self.port))
+
+    def __del__(self):
+        self.conn.close()  # close socket connection
 
     def set_rate_ethanol(self, high_rate):
         if self.ethanol_server_ip is None:
@@ -65,114 +66,90 @@ class ConnectionPool(Thread):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.ethanol_server_ip, self.ethanol_server_port))
         s.sendall(obj)
+        s.close()
 
-    def readline(self, bufferSize=4096):
-        buff = StringIO.StringIO(bufferSize)
-        while True:
-            data = self.conn.recv()
-            buff.write(data)                    # Append that segment to the buffer
-            if '\n' in data:
-                break
+    def set_frame_rate(self, value, videocapture_ip):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((videocapture_ip, self.videocapture_port))
+        s.send(str(value))
+        s.close()
 
-    def run(self):
-        num = 0
+    def run(self, buffer_size=4096):
         # Carrega o tipo de reconhecimento
         self.faceCascade = cv2.CascadeClassifier(self.cascPath)
-        while True:
-            try:
-                # Leitura do pacote
-                # formato 1 - toda imagem em uma única linha
-                # fileDescriptor = self.conn.makefile(mode='rb')
-                # result = fileDescriptor.readline()
-                # fileDescriptor.close()
+        try:
+            # read frame from socket
+            # format #1 - sends the entire image as a single block
+            result = ''
+            data = self.conn.recv(buffer_size)
+            while data != '':
+                result += data
+                data = self.conn.recv(buffer_size)
 
-                # formato 2 - imagem é mandada por linha e com delimitador
-                from utils import FRAME_DELIMITER, compose_frame
-                lines = []
-                end_frame = False
-                i = 1
-                print('formato 2 - while')
-                while not end_frame:
-                    line = self.readline()
-                    print('formato 2 - ', line)
-                    if line == FRAME_DELIMITER:
-                        break
-                    lines.append(line)
-                    print('lido linha #', i)
-                    i += 1
-                result = compose_frame(lines,
-                                       self.image_height,
-                                       self.image_width,
-                                       self.color_pixel,
-                                       )
-
-                if (len(result)) > 0:
-                    # decodificacao
-                    num += 1
-                    log.debug("#%d frame received" % num)
-                    ok, frame = decode_frame(result,
-                                             self.image_height,
-                                             self.image_width,
-                                             self.color_pixel,
-                                             error_msg='[Server]')
-                    if (ok):
-                        # converte a imagem em preto e branco para melhorar reconhecimento
-                        gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                        # detecta os objetos programados
-                        try:
-                            faces = self.faceCascade.detectMultiScale(
-                                gray_image,
-                                scaleFactor=1.1,
-                                minNeighbors=5,
-                                minSize=(30, 30)
-                            )
-                            if self.frames_in_fast_mode > 0:
-                                self.frames_in_fast_mode -= 1
-                            if len(faces) > 0:
-                                log.info('has detected - #' + str(len(faces)))
-                                # RESET refresh time
-                                self.frames_in_fast_mode = self.max_frames_in_fast_mode
-                                self.slow_mode = False
-                                # 1 - camera
-                                self.conn.sendall('1\n')  # send to the camera a flag indicating detection
-                                # 2 - ethanol
-                                self.set_rate_ethanol(high_rate=True)
-                            if self.frames_in_fast_mode == 0:  # and not self.slow_mode:
-                                log.info('returning to slow mode')
-                                self.slow_mode = True
-                                self.conn.sendall('0\n')  # send to the camera a flag indicating detection
-                                self.set_rate_ethanol(high_rate=True)
-
-                        except Exception as e:
-                            print("Detection: " + str(e))
-            except Exception as e:
-                log.debug("Err Server: " + str(e))
+            if (len(result)) > 0:
+                # decodificacao
+                log.info("Frame received from %s:%d" % (self.ip, self.port))
+                ok, frame = decode_frame(result,
+                                         self.image_height,
+                                         self.image_width,
+                                         self.color_pixel,
+                                         error_msg='[Server]')
+                if (ok):
+                    # converte a imagem em preto e branco para melhorar reconhecimento
+                    gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    # detecta os objetos programados
+                    faces = self.faceCascade.detectMultiScale(
+                        gray_image,
+                        scaleFactor=1.1,
+                        minNeighbors=5,
+                        minSize=(30, 30)
+                    )
+                    global frames_in_fast_mode
+                    if frames_in_fast_mode[self.ip] > 0:
+                        frames_in_fast_mode[self.ip] -= 1
+                    if len(faces) > 0:
+                        # RESET refresh time
+                        frames_in_fast_mode[self.ip] = self.max_frames_in_fast_mode
+                        self.slow_mode = False
+                        log.info('has detected - #%d - num frames reseted to %d' % (len(faces), self.max_frames_in_fast_mode))
+                        # 1 - camera
+                        # send to the camera a flag indicating detection
+                        self.set_frame_rate(1, self.ip)
+                        # 2 - ethanol
+                        self.set_rate_ethanol(high_rate=True)
+                    if frames_in_fast_mode[self.ip] == 0:  # and not self.slow_mode:
+                        log.info('no detection - slow mode.')
+                        self.slow_mode = True
+                        # send to the camera a flag indicating NO detection
+                        self.set_frame_rate(0, self.ip)
+                        self.set_rate_ethanol(high_rate=True)
+        except timeout:
+            log.debug("Socket Timeout")
+        except Exception as e:
+            log.debug("Err Server: " + str(e))
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--image-height', type=int, default=480,
-                        help='Image height in pixels')
-    parser.add_argument('--image-width', type=int, default=640,
-                        help='Image width in pixels')
-    parser.add_argument('--color-pixel', type=int, default=3,
-                        help='RGB')
+    parser.add_argument('--image-height', type=int, default=480, help='Image height in pixels')
+    parser.add_argument('--image-width', type=int, default=640, help='Image width in pixels')
+    parser.add_argument('--color-pixel', type=int, default=3, help='RGB')
 
-    parser.add_argument('--server-ip', type=str, default="0.0.0.0",
-                        help='server IP address that process images (default all)')
-    parser.add_argument('--server-port', type=int, default=5500,
-                        help='server port')
-    parser.add_argument('--max-num-connections', type=int, default=20,
-                        help='maximum number of connections')
+    parser.add_argument('--frames-in-fast-mode', type=int, default=50, help='frames in fast mode')
 
-    parser.add_argument('--ethanol-server-ip', type=str, default="150.164.10.52",
-                        help='Ethanol server IP address')
-    parser.add_argument('--ethanol-server-port', type=int, default=22222,
-                        help='Ethanol server port')
+    parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
+
+    parser.add_argument('--server-ip', type=str, default="0.0.0.0", help='server IP address that process images (default all)')
+    parser.add_argument('--server-port', type=int, default=5500, help='server port')
+    parser.add_argument('--max-num-connections', type=int, default=20, help='maximum number of connections')
+
+    # parser.add_argument('--ethanol-server-ip', type=str, default="150.164.10.52", help='Ethanol server IP address')
+    parser.add_argument('--ethanol-server-ip', type=str, default=None, help='Ethanol server IP address')
+    parser.add_argument('--ethanol-server-port', type=int, default=22222, help='Ethanol server port')
     args = parser.parse_args()
 
-    print("Waiting connections...")
+    log.info("Waiting connections @ %s:%d ..." % (args.server_ip, args.server_port))
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.bind((args.server_ip, args.server_port))
@@ -183,8 +160,11 @@ if __name__ == '__main__':
                                 args.image_height,
                                 args.image_width,
                                 args.color_pixel,
-                                ethanol_server_ip=None,  # args.ethanol_server_ip,
+                                ethanol_server_ip=args.ethanol_server_ip,
                                 ethanol_server_port=args.ethanol_server_port,
+                                videocapture_port=args.videocapture_port,
+                                max_frames_in_fast_mode=args.frames_in_fast_mode,
                                 )
         thread.start()
-        # connection.close()
+
+    connection.close()  # this never happens
