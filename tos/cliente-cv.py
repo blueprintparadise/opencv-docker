@@ -56,8 +56,12 @@ def send_image(frame_id, frame, timeout_socket, server_ip, server_port):
     connection.settimeout(timeout_socket)
     connection.connect((server_ip, server_port))
     log.info("Connecting to %s:%d" % (server_ip, server_port))
-    connection.sendall(cod)
-    log.debug("Frame %d sent" % frame_id)
+    try:
+        connection.sendall(cod)
+        log.debug("Frame %d sent" % frame_id)
+    except timeout:
+        global slow_mode
+        slow_mode = True
     connection.close()
 
 
@@ -74,9 +78,10 @@ if __name__ == '__main__':
                         help='RGB')
 
     parser.add_argument('--num-frames', type=int, default=20, help='number of skipped frames in slow mode')
+    parser.add_argument('--num-frames-fast', type=int, default=5, help='number of skipped frames in fast mode')
 
-    parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
-    # parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
+    # parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
+    parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
     parser.add_argument('--server-port', type=int, default=5500, help='server port')
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
     parser.add_argument('--timeout-socket', type=int, default=10, help='socket timeouf')
@@ -109,12 +114,10 @@ if __name__ == '__main__':
             ret, frame = cap.read()
             frame_id += 1  # identifies the frame
             frames += 1    # count number of frames in slow mode
-            if not slow_mode or frames >= args.num_frames:
+            if (slow_mode and frames >= args.num_frames) or \
+               (not slow_mode and frames >= args.num_frames_fast):
                 frames = 0
-                if slow_mode:
-                    log.info("Send frame %d after - num frames %d" % (frame_id, args.num_frames))
-                else:
-                    log.info("Send frame %d" % (frame_id))
+                log.info("Send frame %d after - num frames %d" % (frame_id, args.num_frames if slow_mode else args.num_frames_fast))
 
                 t = Thread(target=send_image, args=(),
                            kwargs={'frame_id': frame_id,
