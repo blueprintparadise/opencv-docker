@@ -13,7 +13,13 @@ $ docker run -it opencv
 
 ## Inside the container
 
+You need to create two containers. One for the client and one for the server.
 
+
+```
+# cd /src
+# ls
+```
 
 # Without docker
 
