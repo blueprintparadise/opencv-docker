@@ -26,9 +26,7 @@ RUN git clone https://github.com/opencv/opencv.git && \
 RUN git clone https://github.com/opencv/opencv_extra.git
 
 RUN mkdir /src
-COPY cliente-cv.py /src/cliente-cv.py
-COPY servidor-cv.py /src/servidor-cv.py
-COPY utils.py /src/utils.py
+COPY tos/* /src/*
 
 # to export GUI
 RUN export uid=1000 gid=1000 && \

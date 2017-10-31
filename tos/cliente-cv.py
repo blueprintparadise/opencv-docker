@@ -86,7 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
     parser.add_argument('--timeout-socket', type=int, default=10, help='socket timeouf')
 
-    parser.add_argument('--show-throughput', type=bool, default=False, help='if True, create a thread ')
+    parser.add_argument('--show-throughput', type=bool, default=True, help='if True, create a thread ')
     args = parser.parse_args()
 
     cap = cv2.VideoCapture(args.device_number)
@@ -95,8 +95,8 @@ if __name__ == '__main__':
 
     if args.show_throughput:
         from throughput import Throughput
-        t = Throughput(interval=1.0)
-        t.start()
+        throughput = Throughput(interval=1.0)
+        throughput.start()
 
     # to receive messages
     Thread(target=get_frame_rate,
@@ -138,4 +138,4 @@ if __name__ == '__main__':
             pass
     cap.release()
     if args.show_throughput:
-        t.stop()
+        throughput.stop()
