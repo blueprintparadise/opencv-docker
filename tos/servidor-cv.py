@@ -122,7 +122,7 @@ class ConnectionPool(Thread):
                         self.slow_mode = True
                         # send to the camera a flag indicating NO detection
                         self.set_frame_rate(0, self.ip)
-                        self.set_rate_ethanol(high_rate=True)
+                        self.set_rate_ethanol(high_rate=False)
         except timeout:
             log.debug("Socket Timeout")
         except Exception as e:
@@ -145,8 +145,8 @@ if __name__ == '__main__':
     parser.add_argument('--max-num-connections', type=int, default=20, help='maximum number of connections')
 
     # parser.add_argument('--ethanol-server-ip', type=str, default="150.164.10.52", help='Ethanol server IP address')
-    parser.add_argument('--ethanol-server-ip', type=str, default=None, help='Ethanol server IP address')
-    parser.add_argument('--ethanol-server-port', type=int, default=22222, help='Ethanol server port')
+    parser.add_argument('--ethanol-server-ip', type=str, default=None, help=' ethanol.tos.usecase_tos server IP address')
+    parser.add_argument('--ethanol-server-port', type=int, default=50000, help='ethanol.tos.usecase_tos server port')
     args = parser.parse_args()
 
     log.info("Waiting connections @ %s:%d ..." % (args.server_ip, args.server_port))

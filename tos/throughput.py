@@ -1,8 +1,14 @@
 from datetime import datetime
 from time import sleep
 from threading import Thread
+import logging
+
+
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+log = logging.getLogger(__file__)
 
 INFORMATION = '/proc/net/dev'
+MBITS = float(1024 * 1024)
 
 
 class Throughput(Thread):
@@ -29,10 +35,10 @@ class Throughput(Thread):
         now = datetime.now()
         tx_bytes, rx_bytes = self.get_bytes()
         interval = (now - self.t).total_seconds()
-        print('tx_bytes: %f rx_bytes: %f' %
-              (float(tx_bytes - self.tx_bytes) / interval,
-               float(rx_bytes - self.rx_bytes) / interval)
-              )
+        tx = float(tx_bytes - self.tx_bytes) / interval
+        rx = float(rx_bytes - self.rx_bytes) / interval
+
+        log.info('tx_bytes: %5.2f Mbps (%f bps) rx_bytes: %5.2f Mbps (%f bps)' % (tx / MBITS, tx, rx / MBITS, rx))
         self.t, self.tx_bytes, self.rx_bytes = (now, tx_bytes, rx_bytes)
 
     def run(self):

@@ -54,9 +54,9 @@ def send_image(frame_id, frame, timeout_socket, server_ip, server_port):
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.settimeout(timeout_socket)
-    connection.connect((server_ip, server_port))
-    log.info("Connecting to %s:%d" % (server_ip, server_port))
     try:
+        connection.connect((server_ip, server_port))
+        log.info("Connecting to %s:%d" % (server_ip, server_port))
         connection.sendall(cod)
         log.debug("Frame %d sent" % frame_id)
     except timeout:
