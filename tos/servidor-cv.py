@@ -35,7 +35,7 @@ class ConnectionPool(Thread):
                  image_width,
                  color_pixel,
                  ethanol_server_ip,
-                 ethanol_server_port=5500,
+                 ethanol_server_port=5000,
                  videocapture_port=5501,
                  max_frames_in_fast_mode=200,
                  cascPath="./lbpcascade_frontalface.xml"):  # this must be an absolute path
@@ -59,22 +59,32 @@ class ConnectionPool(Thread):
     def __del__(self):
         self.conn.close()  # close socket connection
 
-    def set_rate_ethanol(self, high_rate):
+    def set_rate_ethanol(self, high_rate, timeout_socket=10):
         if self.ethanol_server_ip is None:
             return
         obj = pickle.dumps(high_rate, protocol=0)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self.ethanol_server_ip, self.ethanol_server_port))
-        s.sendall(obj)
+        s.settimeout(timeout_socket)
+        try:
+            s.connect((self.ethanol_server_ip, self.ethanol_server_port))
+            log.info("ETHANOL: rate to %s" % ("high" if high_rate else "slow"))
+            s.sendall(obj)
+        except timeout:
+            log.info("timeout - did't inform that rate is %d" % high_rate)
         s.close()
 
-    def set_frame_rate(self, value, videocapture_ip):
+    def set_frame_rate(self, value, videocapture_ip, timeout_socket=10):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((videocapture_ip, self.videocapture_port))
-        s.send(str(value))
+        s.settimeout(timeout_socket)
+        try:
+            s.connect((videocapture_ip, self.videocapture_port))
+            s.send(str(value))
+        except timeout:
+            log.info("timeout - did't inform that rate is %s" % str(value))
         s.close()
 
     def run(self, buffer_size=4096):
+        global frames_in_fast_mode
         # Carrega o tipo de reconhecimento
         self.faceCascade = cv2.CascadeClassifier(self.cascPath)
         try:
@@ -88,7 +98,7 @@ class ConnectionPool(Thread):
 
             if (len(result)) > 0:
                 # decodificacao
-                log.info("Frame received from %s:%d" % (self.ip, self.port))
+                log.info("Frame received from %s:%d - mode: %s" % (self.ip, self.port, "slow" if frames_in_fast_mode[self.ip] == 0 else "high"))
                 ok, frame = decode_frame(result,
                                          self.image_height,
                                          self.image_width,
@@ -104,7 +114,6 @@ class ConnectionPool(Thread):
                         minNeighbors=5,
                         minSize=(30, 30)
                     )
-                    global frames_in_fast_mode
                     if frames_in_fast_mode[self.ip] > 0:
                         frames_in_fast_mode[self.ip] -= 1
                     if len(faces) > 0:
@@ -141,11 +150,11 @@ if __name__ == '__main__':
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
 
     parser.add_argument('--server-ip', type=str, default="0.0.0.0", help='server IP address that process images (default all)')
-    parser.add_argument('--server-port', type=int, default=5500, help='server port')
+    parser.add_argument('--server-port', type=int, default=5000, help='server port')
     parser.add_argument('--max-num-connections', type=int, default=20, help='maximum number of connections')
 
-    # parser.add_argument('--ethanol-server-ip', type=str, default="150.164.10.52", help='Ethanol server IP address')
-    parser.add_argument('--ethanol-server-ip', type=str, default=None, help=' ethanol.tos.usecase_tos server IP address')
+    parser.add_argument('--ethanol-server-ip', type=str, default="150.164.10.52", help='Ethanol server IP address')
+    # parser.add_argument('--ethanol-server-ip', type=str, default=None, help=' ethanol.tos.usecase_tos server IP address')
     parser.add_argument('--ethanol-server-port', type=int, default=50000, help='ethanol.tos.usecase_tos server port')
     args = parser.parse_args()
 

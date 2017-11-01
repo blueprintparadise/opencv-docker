@@ -24,7 +24,7 @@ signal.signal(signal.SIGINT, signal_handler)
 slow_mode = True  # default mode -- slow capture
 
 
-def get_frame_rate(server_port, server_ip='0.0.0.0', max_num_connections=1):
+def get_frame_rate(server_port, server_ip='0.0.0.0', max_num_connections=5):
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.bind((server_ip, server_port))
@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     # parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
     parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
-    parser.add_argument('--server-port', type=int, default=5500, help='server port')
+    parser.add_argument('--server-port', type=int, default=5000, help='server port')
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
     parser.add_argument('--timeout-socket', type=int, default=10, help='socket timeouf')
 
