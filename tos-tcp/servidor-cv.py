@@ -140,7 +140,7 @@ class ConnectionPool(Thread):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Process images from video capture clients.')
     parser.add_argument('--image-height', type=int, default=480, help='Image height in pixels')
     parser.add_argument('--image-width', type=int, default=640, help='Image width in pixels')
     parser.add_argument('--color-pixel', type=int, default=3, help='RGB')

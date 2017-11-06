@@ -9,9 +9,13 @@ Created on 5 de out de 2017
 import cv2
 import socket
 import argparse
+from math import ceil
+import time
 
 from threading import Thread
 from socket import timeout
+from socket import error as socket_error
+import errno
 import signal
 from utils import signal_handler
 
@@ -44,30 +48,39 @@ def get_frame_rate(server_port, server_ip='0.0.0.0', max_num_connections=5):
         client_conn.close()
 
 
-def send_image(frame_id, frame, timeout_socket, server_ip, server_port):
+def send_image(frame_id, frame, timeout_socket, server_ip, server_port, chunk_size=1200):
     """ send the frame to the image processing server """
     from utils import code_data_base64
     # format #1 - sends the entire image as a single block
     cod = code_data_base64(frame)
 
     # each image is sent on a different connection
-    connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.settimeout(timeout_socket)
+    sizes = []
     try:
-        connection.connect((server_ip, server_port))
-        log.info("Connecting to %s:%d" % (server_ip, server_port))
-        connection.sendall(cod)
-        log.debug("Frame %d sent" % frame_id)
+        n = int(ceil(float(len(cod)) / chunk_size))
+        for i in range(n):
+            b = i * chunk_size
+            msg = cod[b:b + chunk_size]
+            sizes.append(len(msg))
+            connection.sendto(msg, (server_ip, server_port))
+            time.sleep(0.0001)  # PYTHON BUG: this sleep is need, so the local processor can put the packet in the queue
+        log.info("Frame %d sent to %s:%d - size: %d" % (frame_id, server_ip, server_port, len(cod)))
+        log.info("chunk_size: %d - last chunk_size: %d - num chunks: %d - total size: %d" % (chunk_size, sizes[-1], len(sizes), sum(sizes)))
     except timeout:
         global slow_mode
         slow_mode = True
+    except socket_error as serr:
+        if serr.errno != errno.ECONNREFUSED:
+            log.debug("Connection refused")
     connection.close()
 
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Capture video images and send to server to process.')
+    parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--image-height', type=int, default=480,
                         help='Image height in pixels')
     parser.add_argument('--image-width', type=int, default=640,
@@ -119,20 +132,20 @@ if __name__ == '__main__':
                 frames = 0
                 log.info("Send frame %d after - num frames %d" % (frame_id, args.num_frames if slow_mode else args.num_frames_fast))
 
-                t = Thread(target=send_image, args=(),
-                           kwargs={'frame_id': frame_id,
-                                   'frame': frame,
-                                   'timeout_socket': args.timeout_socket,
-                                   'server_ip': args.server_ip,
-                                   'server_port': args.server_port,
-                                   }
-                           )
-                t.start()
+                # t = Thread(target=send_image, args=(),
+                #            kwargs={'frame_id': frame_id,
+                #                    'frame': frame,
+                #                    'timeout_socket': args.timeout_socket,
+                #                    'server_ip': args.server_ip,
+                #                    'server_port': args.server_port,
+                #                    }
+                #            )
+                # t.start()
+                send_image(frame_id, frame, args.timeout_socket, args.server_ip, args.server_port)
 
             cv2.imshow('Actual capture', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 ctrl_c = True  # quitting
-                break
         except Exception as e:
             print "Error: " + str(e)
             pass
