@@ -173,6 +173,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     log.info("Waiting connections @ %s:%d ..." % (args.server_ip, args.server_port))
+    log.info("Expected Image size %d x %d x %d " % (args.image_height, args.image_width, args.color_pixel))
     connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     connection.bind((args.server_ip, args.server_port))

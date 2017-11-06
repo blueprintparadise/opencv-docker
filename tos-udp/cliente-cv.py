@@ -93,8 +93,8 @@ if __name__ == '__main__':
     parser.add_argument('--num-frames', type=int, default=40, help='number of skipped frames in slow mode')
     parser.add_argument('--num-frames-fast', type=int, default=5, help='number of skipped frames in fast mode')
 
-    # parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
-    parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
+    parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
+    # parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
     parser.add_argument('--server-port', type=int, default=5000, help='server port')
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
     parser.add_argument('--timeout-socket', type=int, default=10, help='socket timeouf')
@@ -105,6 +105,9 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(args.device_number)
     # cap = cv2.VideoCapture("/home/luis/Downloads/blade-runner-2049-trailer-4_h480p.mov")
     # cap = cv2.VideoCapture("/home/luis/Downloads/Avengers_2_trailer_3_51-1080p-HDTN.mp4")
+    log.info("VC Image size %d x %d x %d " % (args.image_height, args.image_width, args.color_pixel))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.image_width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.image_height)
 
     if args.show_throughput:
         from throughput import Throughput
