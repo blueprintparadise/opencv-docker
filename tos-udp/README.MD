@@ -1,8 +1,10 @@
 # BUGS #
 
-Este programa não está funcionando corretamente.
-Existe algum problema na utilização do python socket com UDP que precisa ser verificado.
-Quando precisamos mandar diversos pacotes, como no caso de uma imagem, a quantidade de perdas que está acontecendo é muito grande.
+Existe algum problema na utilização do python socket com UDP no lado do cliente.
+Quando precisamos mandar diversos pacotes em rápida sequencia, como no caso de uma imagem, a quantidade de perdas que está acontecendo é muito grande.
+Em cliente-cv.py foi necessário colocar um sleep entre os sendto's pois parece que o problema ocorre porque a fila de envio enche, mas não dá erro.
 
-Teste-client.py é utilizado somente para gerar pacotes de tamanho diversos para testar a comunicação UDP.
-Com ele vemos que existem muitas perdas, para tamanhos de dados cerca de 10x menores que o necessário para a captura, mesmo com o cliente e o servidor na mesma máquina. (MUITO ESTRANHO !!!)
+```python
+            connection.sendto(msg, (server_ip, server_port))
+            time.sleep(0.0001)  # PYTHON BUG: this sleep is need, so the local processor can put the packet in the queue
+```
