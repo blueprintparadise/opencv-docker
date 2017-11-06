@@ -161,8 +161,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
 
-    # parser.add_argument('--server-ip', type=str, default="0.0.0.0", help='server IP address that process images (default all)')
-    parser.add_argument('--server-ip', type=str, default="150.164.10.22", help='server IP address that process images (default all)')
+    parser.add_argument('--server-ip', type=str, default="0.0.0.0", help='server IP address that process images (default all)')
+    # parser.add_argument('--server-ip', type=str, default="150.164.10.22", help='server IP address that process images (default all)')
+    # parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default all)')
     parser.add_argument('--server-port', type=int, default=5000, help='server port')
     parser.add_argument('--max-num-connections', type=int, default=20, help='maximum number of connections')
 
