@@ -93,8 +93,8 @@ if __name__ == '__main__':
     parser.add_argument('--num-frames', type=int, default=40, help='number of skipped frames in slow mode')
     parser.add_argument('--num-frames-fast', type=int, default=5, help='number of skipped frames in fast mode')
 
-    parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
-    # parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
+    # parser.add_argument('--server-ip', type=str, default="localhost", help='server IP address that process images (default localhost)')
+    parser.add_argument('--server-ip', type=str, default="192.168.1.100", help='server IP address that process images (default localhost)')
     parser.add_argument('--server-port', type=int, default=5000, help='server port')
     parser.add_argument('--videocapture-port', type=int, default=5501, help='video capture port')  # IP address is infered by the connection
     parser.add_argument('--timeout-socket', type=int, default=10, help='socket timeouf')
