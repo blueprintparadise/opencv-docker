@@ -4,6 +4,7 @@ RUN apt-get -y update && \
     apt-get -y upgrade
 RUN apt-get -y install build-essential
 RUN apt-get -y install cmake git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev
+RUN apt-get install build-essential cmake
 RUN apt-get -y install libgtk-3-dev
 RUN apt-get -y install libxvidcore-dev libx264-dev
 RUN apt-get -y install python-dev python-numpy libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev
